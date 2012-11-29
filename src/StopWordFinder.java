@@ -64,7 +64,7 @@ public class StopWordFinder {
         conf.setReducerClass(StopReduce.class);
         
         conf.setOutputKeyClass(Text.class);
-        conf.setOutputValueClass(Text.class);
+        conf.setOutputValueClass(IntWritable.class);
 
         conf.setInputFormat(TextInputFormat.class);
         conf.setOutputFormat(TextOutputFormat.class);
