@@ -1,78 +1,92 @@
+
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.*;
-import java.io.File;
 
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.conf.*;
 import org.apache.hadoop.io.*;
-import org.apache.hadoop.mapreduce.*;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
-//import org.w3c.dom.Text;
-
+import org.apache.hadoop.mapred.*;
+import org.apache.commons.lang.StringUtils;
 
 public class InvertedIndex {
+	
+	public static boolean newtitle = false;
+	public static String id_number = "";
+	public static int position = 0;
 
-    public static class Map extends Mapper<LongWritable, Text, Text, Text> {
-    	private Text Key = new Text();
-    	private Text article = new Text();
-    	
-    	public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-    		
-    		Scanner reader = new Scanner(new FileInputStream("/home/g/grad/mmercald/hadoop-1.0.4/stopwords.txt"));
+	public static class Map extends MapReduceBase implements Mapper<LongWritable, Text, Text, Text> {
+		private Text id = new Text();
+		private Text word = new Text();
+	
+		public void map(LongWritable key, Text value, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
+			
+			Scanner reader = new Scanner(new FileInputStream("stopwords.txt"));
     		List <String> stopwords = new ArrayList<String>();
-    		while (reader.hasNext()) {      // while there is another token to read
-    		    stopwords.add(reader.next().toLowerCase());   // reads in the String tokens "Hello" "CSstudents" 
+    		while (reader.hasNextLine()) {      // while there is another token to read
+    		    stopwords.add(reader.nextLine().toLowerCase());   // reads in the String tokens "Hello" "CSstudents" 
     		}
-    		
-    		//Assuming the input(value) is a line, if input is a file then we'll add another loop to go over each line
-    		String line = value.toString(); //Needs to be splitted by " ","<" and ">"
-    		
-   			StringTokenizer tokenizer = new StringTokenizer(line);
-   			article.set(value);
-   			//Loop though each word, return it as value only if it not a tag or stop word
-   			while (tokenizer.hasMoreTokens()) {
-   				String word = tokenizer.nextToken().toLowerCase();
-   				char firstChar = word.charAt(0);
-    			if (!stopwords.contains(word) && firstChar != '/' && firstChar != '<') {
-    				Key.set(word);
-    			}
-    			context.write(Key,article);
-    		}
-    	}
-    }
-    
-    public static class Reduce extends Reducer<Text, Text, Text, Text> {
-    	public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
-    		
-    		List <Text> articles = new ArrayList<Text>();
-    		for (Text article : values) {
-    			articles.add(article);
-    			    		context.write(key,article);
-    		}
+           stopwords.set(0, "a");
 
-    	}
-    }
+			String line = value.toString();
+			if (line.contains("</title>")) {
+				newtitle = true;
+				
+			}
+			//String id_number = "";
+			if (newtitle && line.contains("<id>")) {
+				newtitle =false;
+				id_number = StringUtils.substringBetween(line, "<id>","</id>");
+				id.set(id_number);
+				position = 0;
+				
+			}
+			line = line.replaceAll("<[^>]*>", " ").replaceAll("\\[[^\\[]*\\]", " ").replaceAll("\\{[^\\{]*\\}", " ").replaceAll("[^a-zA-Z]+", " ");
+			StringTokenizer tokenizer = new StringTokenizer(line);
+			while (tokenizer.hasMoreTokens()) {
+				String word1 = tokenizer.nextToken().toLowerCase();
+				if (!stopwords.contains(word1) && !id_number.equals("")) {
+					position+=1;
+					id.set("");
+    				word.set(word1);
+    				//System.out.print(word1);
+    				//System.out.print("::");
+    				//System.out.println(id_number+"|"+position+" ");
+    				id.set(id_number+"|"+position);
+    				
+    				output.collect(word, id);
+				}
+			}
+		}
+	}
 
-    public static void main(String[] args) throws Exception {
-        Configuration conf = new Configuration();
-        Job job = new Job(conf, "InvertedIndex");
-        job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(Text.class);
-            
-        job.setMapperClass(Map.class);
-        job.setReducerClass(Reduce.class);
-            
-        job.setInputFormatClass(TextInputFormat.class);
-        job.setOutputFormatClass(TextOutputFormat.class);
-            
-        FileInputFormat.addInputPath(job, new Path(args[0]));
-        FileOutputFormat.setOutputPath(job, new Path(args[1]));
-            
-        job.waitForCompletion(true);
-     }
-            
-    }
+public static class Reduce extends MapReduceBase implements Reducer<Text, Text, Text, Text> {
+	public void reduce(Text key, Iterator<Text> values, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
+		String ids = "";
+		while (values.hasNext()) {
+			ids += values.next() + " ";
+		}
+		
+		//if (!ids.split("|")[0].equals(" ")){
+		Text article_ids = new Text();
+		article_ids.set(ids.substring(0,ids.length()-1));
+		output.collect(key, article_ids);
+		
+	}
+}
+
+	public static void main(String[] args) throws Exception {
+		JobConf conf = new JobConf(InvertedIndex.class);
+		conf.setJobName("InvertedIndex");
+		conf.setOutputKeyClass(Text.class);
+		conf.setOutputValueClass(Text.class);	
+		conf.setMapperClass(Map.class);
+		conf.setCombinerClass(Reduce.class);
+		conf.setReducerClass(Reduce.class);
+		conf.setInputFormat(TextInputFormat.class);
+		conf.setOutputFormat(TextOutputFormat.class);
+		FileInputFormat.setInputPaths(conf, new Path("input"));
+		FileOutputFormat.setOutputPath(conf, new Path("output2"));
+		JobClient.runJob(conf);
+	}
+}
