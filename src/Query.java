@@ -181,8 +181,8 @@ public static class Reduce extends MapReduceBase implements Reducer<Text, Text, 
 		conf.setReducerClass(Reduce.class);
 		conf.setInputFormat(TextInputFormat.class);
 		conf.setOutputFormat(TextOutputFormat.class);
-		FileInputFormat.setInputPaths(conf, new Path("output2"));
-		FileOutputFormat.setOutputPath(conf, new Path("output5"));
+		FileInputFormat.setInputPaths(conf, new Path("output"));
+		FileOutputFormat.setOutputPath(conf, new Path("output2"));
 		JobClient.runJob(conf);
 	}
 }

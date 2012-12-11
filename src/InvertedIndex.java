@@ -21,13 +21,14 @@ public class InvertedIndex {
 	
 		public void map(LongWritable key, Text value, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
 			
-			Scanner reader = new Scanner(new FileInputStream("stopwords.txt"));
-    		List <String> stopwords = new ArrayList<String>();
-    		while (reader.hasNextLine()) {      // while there is another token to read
-    		    stopwords.add(reader.nextLine().toLowerCase());   // reads in the String tokens "Hello" "CSstudents" 
-    		}
-           stopwords.set(0, "a");
-
+			//Scanner reader = new Scanner(new FileInputStream("stopwords.txt"));
+    		//List <String> stopwords = new ArrayList<String>();
+    		//while (reader.hasNextLine()) {      // while there is another token to read
+    		//    stopwords.add(reader.nextLine().toLowerCase());   // reads in the String tokens "Hello" "CSstudents" 
+    		//}
+            //stopwords.set(0, "a");
+		    List<String> stopwords = new ArrayList<String>(Arrays.asList(Stopwords.stopwords));
+		    
 			String line = value.toString();
 			if (line.contains("</title>")) {
 				newtitle = true;
@@ -86,7 +87,7 @@ public static class Reduce extends MapReduceBase implements Reducer<Text, Text, 
 		conf.setInputFormat(TextInputFormat.class);
 		conf.setOutputFormat(TextOutputFormat.class);
 		FileInputFormat.setInputPaths(conf, new Path("input"));
-		FileOutputFormat.setOutputPath(conf, new Path("output2"));
+		FileOutputFormat.setOutputPath(conf, new Path("output"));
 		JobClient.runJob(conf);
 	}
 }
